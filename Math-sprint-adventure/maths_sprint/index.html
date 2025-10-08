@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Sprint Adventure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font for a fun, child-friendly look */
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+        
+        :root {
+            --pink-light: #fce7f3; /* Pink 100 */
+            --pink-medium: #f472b6; /* Pink 400 */
+            --pink-dark: #db2777; /* Pink 600 */
+            --purple-accent: #a855f7; /* Violet 500 */
+            --shadow-color: #f9a8d4; /* Pink 300 */
+        }
+
+        body {
+            font-family: 'Fredoka', cursive;
+            display: flex;
+            /* Center the body container for the main card, allowing the fixed scoreboard to exist outside of this center flow */
+            justify-content: center; 
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, var(--pink-light), #e0f2fe);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- Floating Particles Container (Unchanged) --- */
+        #floating-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -90;
+            pointer-events: none;
+        }
+        
+        #floating-background .particle {
+            position: absolute;
+            opacity: 0.7;
+            animation: twinkle linear infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.7; transform: scale(1); filter: brightness(100%); }
+            50% { opacity: 0.3; transform: scale(0.9); filter: brightness(80%); }
+            75% { opacity: 1; transform: scale(1.1); filter: brightness(120%); }
+        }
+
+        .shape-circle { border-radius: 50%; box-shadow: 0 0 10px rgba(255, 255, 255, 0.7); }
+        .shape-star { clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
+        .shape-moon { border-radius: 50%; box-shadow: 0 0 12px rgba(253, 253, 150, 0.8); clip-path: polygon( 50% 0%, 90% 5%, 100% 50%, 90% 95%, 50% 100%, 30% 80%, 30% 20%); }
+
+        /* --- Card and Game Styles --- */
+        .card {
+            background-color: white;
+            padding: 32px;
+            border-radius: 20px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3), 0 0 0 8px var(--shadow-color);
+            width: 90%; 
+            max-width: 450px; /* Main game card width */
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* === Separate, Fixed Scoreboard Container Style === */
+        #scoreboard-wrapper {
+            position: fixed; 
+            right: 5%; 
+            top: 50%;
+            transform: translateY(-50%);
+            width: 380px; 
+            max-width: 90%;
+            
+            background-color: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 0 0 0 5px var(--shadow-color);
+            z-index: 10;
+        }
+
+        /* Ensure main card stays centered even when scoreboard is present */
+        @media (min-width: 1025px) {
+            body {
+                /* Shifts the main card slightly to the left to balance the right-fixed scoreboard */
+                justify-content: flex-start; 
+                padding-left: 5%;
+            }
+            #app {
+                margin-right: 500px; /* Leaves space for the scoreboard */
+            }
+        }
+
+        /* Hide the separate scoreboard on smaller screens (mobile/tablet) to prevent overlap */
+        @media (max-width: 1024px) {
+            #scoreboard-wrapper {
+                display: none !important; 
+            }
+        }
+        
+        .btn-primary {
+            background-color: var(--pink-dark);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 700;
+            box-shadow: 0 4px var(--purple-accent);
+            border: none;
+            transition: background-color 0.2s, transform 0.1s, box-shadow 0.1s;
+        }
+
+        .btn-primary:hover { background-color: var(--pink-medium); transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(4px) scale(0.95); box-shadow: 0 0 var(--purple-accent); transition: transform 0.05s ease-out, box-shadow 0.05s; }
+
+        .progress-bar-container { height: 12px; background-color: var(--pink-light); border-radius: 6px; overflow: hidden; margin-top: 8px; }
+        .progress-bar { height: 100%; background-color: var(--purple-accent); transition: width 0.8s ease-out, background-color 0.3s; }
+
+        .scoreboard-scroll { max-height: 250px; overflow-y: auto; padding-right: 5px; }
+        .scoreboard-scroll table { border-collapse: collapse; }
+        .scoreboard-scroll th, .scoreboard-scroll td { padding: 8px; }
+        .scoreboard-scroll::-webkit-scrollbar { width: 8px; }
+        .scoreboard-scroll::-webkit-scrollbar-thumb { background-color: var(--pink-medium); border-radius: 4px; }
+        .scoreboard-scroll::-webkit-scrollbar-track { background: var(--pink-light); border-radius: 4px; }
+
+        /* Animations */
+        .fade-in-scale { opacity: 0; transform: scale(0.95) translateY(10px); animation: fadeInScale 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+        @keyframes fadeInScale { to { opacity: 1; transform: scale(1) translateY(0); } }
+        .question-bounce { animation: questionBounce 0.5s ease-in-out; }
+        @keyframes questionBounce { 0% { transform: scale(0.8); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @keyframes scorePulse { 0% { transform: scale(1); text-shadow: none; } 50% { transform: scale(1.4); color: yellow; text-shadow: 0 0 10px var(--purple-accent); } 100% { transform: scale(1); text-shadow: none; } }
+        .score-pulse { animation: scorePulse 0.6s ease-in-out; }
+        .feedback-pop { animation: feedbackPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes feedbackPop { 0% { opacity: 0; transform: scale(0.5); } 80% { opacity: 1; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; transform: translate3d(0, 0, 0); }
+        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(+2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(+4px, 0, 0); } }
+        .options-explode { animation: optionsExplode 0.5s ease-out forwards; pointer-events: none; }
+        @keyframes optionsExplode { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.5) translateY(-50px); } }
+    </style>
+</head>
+<body>
+
+<div id="floating-background">
+</div>
+
+<div id="app" class="card fade-in-scale">
+</div>
+
+<div id="scoreboard-wrapper" style="display: none;">
+</div>
+
+<script>
+    // --- Configuration and State Management ---
+    const QUESTIONS_PER_LEVEL = 5;
+    const MAX_LEVEL = 10;
+    const TIME_PER_LEVEL = 40; // seconds
+
+    function loadHighScores() {
+        try {
+            const scores = JSON.parse(localStorage.getItem('mathSprintHighScores')) || [];
+            return scores.sort((a, b) => b.score - a.score);
+        } catch (e) {
+            console.error("Error loading high scores:", e);
+            return [];
+        }
+    }
+
+    let gameState = {
+        screen: 'login',
+        userName: '',
+        currentLevel: 1,
+        questionIndex: 0,
+        score: 0,
+        timeRemaining: TIME_PER_LEVEL,
+        timerId: null,
+        currentQuestion: null,
+        correctAnswer: null,
+        currentOptions: [],
+        userMessage: '',
+        isMuted: true,
+        levelScore: 0,
+        highScores: loadHighScores(),
+        audioCache: {},
+        lastScore: 0,
+    };
+
+    // =========================================================================
+    // AUDIO FILE PATHS: Ensure these files are uploaded or accessible
+    // =========================================================================
+    const soundUrls = {
+        click: 'buttons.mp3', 
+        correct: 'correct_answer.mp3',
+        wrong: 'wrong_answer.mp3',
+        victory: 'endgame.mp3',
+        defeat: 'endgame.mp3',
+        timeout: 'endgame.mp3',
+        gameWin: 'you_win.mp3', // Updated to use a separate file for final congratulations
+        backgroundMusic: 'background_music.mp3',
+    };
+    // =========================================================================
+
+
+    const app = document.getElementById('app');
+    const floatingBackground = document.getElementById('floating-background');
+    const scoreboardWrapper = document.getElementById('scoreboard-wrapper');
+    
+    function generateParticles() {
+        floatingBackground.innerHTML = '';
+        const NUM_PARTICLES = 40; 
+        const shapes = ['circle', 'star', 'moon'];
+
+        const vibrantColors = [
+            'rgba(255, 165, 0, 0.6)', 'rgba(255, 69, 0, 0.6)', 
+            'rgba(255, 0, 255, 0.6)', 'rgba(0, 255, 255, 0.6)', 
+            'rgba(0, 255, 0, 0.6)', 'rgba(255, 255, 0, 0.6)', 
+            'rgba(138, 43, 226, 0.6)', 'rgba(255, 105, 180, 0.6)' 
+        ];
+
+        for (let i = 0; i < NUM_PARTICLES; i++) {
+            const particle = document.createElement('div');
+            const shapeType = shapes[getRandomInt(0, shapes.length - 1)];
+
+            particle.classList.add('particle', `shape-${shapeType}`);
+            
+            const size = getRandomInt(15, 35);
+            particle.style.width = `${size}px`;
+            particle.style.height = `${size}px`;
+            
+            particle.style.left = `${getRandomInt(5, 95)}%`;
+            particle.style.top = `${getRandomInt(5, 95)}%`;
+            
+            particle.style.animationDuration = `${getRandomInt(15, 30) / 10}s`;
+            particle.style.animationDelay = `${getRandomInt(0, 100) / 10}s`;
+
+            const color = vibrantColors[getRandomInt(0, vibrantColors.length - 1)];
+            particle.style.background = color;
+
+            if (shapeType === 'star' || shapeType === 'moon') {
+                 particle.style.transform = `rotate(${getRandomInt(0, 360)}deg)`;
+            }
+
+            floatingBackground.appendChild(particle);
+        }
+    }
+
+
+    // --- Audio and Utility Functions ---
+
+    function initializeAudio() {
+        for (const key in soundUrls) {
+            if (soundUrls.hasOwnProperty(key)) {
+                if (!gameState.audioCache[key]) {
+                     gameState.audioCache[key] = new Audio(soundUrls[key]);
+                }
+                
+                gameState.audioCache[key].muted = gameState.isMuted;
+                
+                if (key === 'backgroundMusic') {
+                    gameState.audioCache[key].loop = true;
+                    gameState.audioCache[key].volume = 0.3;
+                }
+            }
+        }
+    }
+
+    function playSound(key) {
+        const audio = gameState.audioCache[key];
+        if (!gameState.isMuted && audio && !audio.muted) {
+            audio.currentTime = 0;
+            audio.play().catch(e => {
+                console.error(`Playback failed for ${key} (Autoplay Blocked?):`, e.message);
+            });
+        }
+    }
+    
+    function toggleMute() {
+        gameState.isMuted = !gameState.isMuted;
+        
+        for (const key in gameState.audioCache) {
+            if (gameState.audioCache.hasOwnProperty(key)) {
+                gameState.audioCache[key].muted = gameState.isMuted;
+            }
+        }
+        
+        if (!gameState.isMuted) {
+            playSound('click');
+            if (gameState.screen === 'game' || gameState.screen === 'levelComplete') {
+                playSound('backgroundMusic');
+            }
+        } else {
+            if (gameState.audioCache['backgroundMusic']) {
+                gameState.audioCache['backgroundMusic'].pause();
+            }
+        }
+
+        renderApp();
+    }
+    
+    function saveHighScore(name, finalScore) {
+        if (finalScore === 0) return;
+
+        const trimmedName = name.trim();
+        const normalizedName = trimmedName.toLowerCase();
+        
+        let newScores = [];
+        let isNewPlayer = true;
+        let bestPreviousScore = 0;
+
+        for (const entry of gameState.highScores) {
+            if (entry.name.trim().toLowerCase() === normalizedName) {
+                isNewPlayer = false;
+                if (entry.score > bestPreviousScore) {
+                    bestPreviousScore = entry.score;
+                }
+            } else {
+                newScores.push(entry);
+            }
+        }
+        
+        if (finalScore > bestPreviousScore || isNewPlayer) {
+            newScores.push({ name: trimmedName, score: finalScore });
+        } else {
+            newScores.push({ name: trimmedName, score: bestPreviousScore });
+        }
+
+        newScores.sort((a, b) => b.score - a.score);
+        gameState.highScores = newScores.slice(0, 5);
+
+        localStorage.setItem('mathSprintHighScores', JSON.stringify(gameState.highScores));
+    }
+
+    function resetHighScores() {
+        if (confirm("Are you sure you want to clear ALL high scores? This action cannot be undone.")) {
+            playSound('click');
+            localStorage.removeItem('mathSprintHighScores');
+            gameState.highScores = [];
+            renderApp();
+        }
+    }
+
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function generateQuestion(level) {
+        let questionText = '';
+        let answer = 0;
+        let type = getRandomInt(1, 100) > 80 ? 'pattern' : 'arithmetic';
+
+        let maxNum = 5 + level * 5;
+        if (maxNum > 100) maxNum = 100;
+        
+        let num1 = getRandomInt(1, maxNum);
+        let num2 = getRandomInt(1, maxNum);
+
+        if (type === 'arithmetic' || level < 3) {
+            let operators = ['+', '-'];
+            if (level >= 3) operators.push('*');
+            if (level >= 7) operators.push('/');
+
+            const op = operators[getRandomInt(0, operators.length - 1)];
+
+            if (op === '+') {
+                answer = num1 + num2;
+                questionText = `${num1} + ${num2} = ?`;
+            } else if (op === '-') {
+                if (num1 < num2) [num1, num2] = [num2, num1];
+                answer = num1 - num2;
+                questionText = `${num1} - ${num2} = ?`;
+            } else if (op === '*') {
+                num1 = getRandomInt(1, 10 + level * 0.5);
+                num2 = getRandomInt(1, 10 + level * 0.5);
+                answer = num1 * num2;
+                questionText = `${num1} x ${num2} = ?`;
+            } else if (op === '/') {
+                let result = getRandomInt(1, 10);
+                num2 = getRandomInt(1, 10);
+                num1 = num2 * result;
+                answer = result;
+                questionText = `${num1} ÷ ${num2} = ?`;
+            }
+        } else {
+            let base = getRandomInt(1, 5);
+            let step = getRandomInt(2, 6);
+            let sequence = [];
+
+            for (let i = 0; i < 4; i++) {
+                sequence.push(base + i * step);
+            }
+            
+            answer = base + 4 * step;
+            questionText = `What is the next number in the pattern? ${sequence.join(', ')}, ?`;
+        }
+
+        let options = new Set();
+        options.add(answer);
+
+        while (options.size < 3) {
+            let offset = getRandomInt(-5, 5);
+            if (offset === 0) { offset = 1; }
+            let incorrectAnswer = answer + offset;
+            if (incorrectAnswer > 0) {
+                options.add(incorrectAnswer);
+            }
+        }
+        
+        let optionArray = Array.from(options);
+        for (let i = optionArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [optionArray[i], optionArray[j]] = [optionArray[j], optionArray[i]];
+        }
+
+        return { questionText, answer, options: optionArray };
+    }
+
+
+    // --- Game Flow Functions (Unchanged) ---
+
+    function endGame() {
+        clearInterval(gameState.timerId);
+        gameState.timerId = null;
+        gameState.screen = 'congratulations';
+        
+        if (gameState.audioCache['backgroundMusic']) {
+            gameState.audioCache['backgroundMusic'].pause();
+            gameState.audioCache['backgroundMusic'].currentTime = 0;
+        }
+
+        saveHighScore(gameState.userName, gameState.score);
+        
+        playSound('gameWin'); 
+        renderApp();
+    }
+    
+    function nextQuestion() {
+        if (gameState.questionIndex < QUESTIONS_PER_LEVEL - 1) {
+            gameState.questionIndex++;
+            loadQuestion();
+            gameState.userMessage = '';
+            
+            renderGameScreen();
+        } else if (gameState.currentLevel < MAX_LEVEL) {
+            clearInterval(gameState.timerId);
+            gameState.timerId = null;
+            gameState.screen = 'levelComplete';
+            gameState.userMessage = '';
+            playSound('victory');
+            renderApp();
+        } else {
+            endGame();
+        }
+    }
+
+    function goToNextLevel() {
+        playSound('click');
+
+        gameState.currentLevel++;
+        gameState.questionIndex = 0;
+        gameState.timeRemaining = TIME_PER_LEVEL;
+        gameState.levelScore = 0;
+        
+        loadQuestion();
+        startTimer();
+        
+        gameState.screen = 'game';
+        
+        if (!gameState.isMuted) {
+            playSound('backgroundMusic');
+        }
+        
+        renderApp();
+    }
+
+    function loadQuestion() {
+        const { questionText, answer, options } = generateQuestion(gameState.currentLevel);
+        gameState.currentQuestion = questionText;
+        gameState.correctAnswer = answer;
+        gameState.currentOptions = options;
+    }
+
+    function startGame(event) {
+        event.preventDefault();
+        const input = document.getElementById('usernameInput');
+        gameState.userName = input.value.trim() || 'Star Player';
+        
+        if (gameState.userName.length > 0) {
+            
+            initializeAudio();
+
+            const wasMuted = gameState.isMuted;
+            gameState.isMuted = false;
+            if(gameState.audioCache['click']) {
+                gameState.audioCache['click'].muted = false;
+            }
+            
+            playSound('click');
+            
+            if (!wasMuted) {
+                playSound('backgroundMusic');
+            }
+            
+            gameState.isMuted = wasMuted;
+            for (const key in gameState.audioCache) {
+                 if (gameState.audioCache.hasOwnProperty(key)) {
+                    gameState.audioCache[key].muted = gameState.isMuted;
+                }
+            }
+            
+            gameState.screen = 'game';
+            gameState.currentLevel = 1;
+            gameState.questionIndex = 0;
+            gameState.score = 0;
+            gameState.lastScore = 0;
+            gameState.levelScore = 0;
+            gameState.timeRemaining = TIME_PER_LEVEL;
+            loadQuestion();
+            startTimer();
+            renderApp();
+        }
+    }
+
+    function startTimer() {
+        clearInterval(gameState.timerId);
+        
+        gameState.timerId = setInterval(() => {
+            gameState.timeRemaining--;
+            
+            const timerDisplay = document.getElementById('timerDisplay');
+            const timerProgressBar = document.getElementById('timerProgressBar');
+            
+            if (timerDisplay) {
+                timerDisplay.textContent = gameState.timeRemaining;
+            }
+            if (timerProgressBar) {
+                const percentage = (gameState.timeRemaining / TIME_PER_LEVEL) * 100;
+                timerProgressBar.style.width = `${percentage}%`;
+                timerProgressBar.style.backgroundColor = gameState.timeRemaining <= 10 ? '#ef4444' : 'var(--purple-accent)';
+            }
+
+            if (gameState.timeRemaining <= 0) {
+                clearInterval(gameState.timerId);
+                playSound('timeout');
+                
+                gameState.userMessage = "⏱️ Time's Up! Level ends now.";
+                
+                 if (gameState.audioCache['backgroundMusic']) {
+                    gameState.audioCache['backgroundMusic'].pause();
+                 }
+                
+                renderGameScreen(true);
+                
+                setTimeout(() => {
+                    if (gameState.currentLevel < MAX_LEVEL) {
+                        gameState.screen = 'levelComplete';
+                    } else {
+                        endGame();
+                    }
+                    renderApp();
+                }, 1500);
+            }
+        }, 1000);
+    }
+
+    function checkAnswer(userAnswer) {
+        // Prevent answering if the state is already processing or time's up
+        if (gameState.timerId === null && gameState.screen === 'game') return;
+        
+        clearInterval(gameState.timerId);
+
+        const optionsContainer = document.getElementById('optionsContainer');
+        const questionText = document.getElementById('questionText');
+
+        if (userAnswer === gameState.correctAnswer) {
+            gameState.score += 10;
+            gameState.levelScore += 10;
+            gameState.userMessage = '🌟 Correct! Great job! 🌟';
+            playSound('correct');
+
+            const scoreElement = document.getElementById('scoreDisplay');
+            if(scoreElement) {
+                scoreElement.classList.add('score-pulse');
+                setTimeout(() => scoreElement.classList.remove('score-pulse'), 600);
+            }
+            if (optionsContainer) {
+                optionsContainer.classList.add('options-explode');
+            }
+            if (questionText) {
+                questionText.style.transition = 'transform 0.2s';
+                questionText.style.transform = 'scale(0.9)';
+            }
+            
+            renderGameScreen(true);
+            renderExternalScoreboard(); // Update scoreboard immediately
+
+            setTimeout(() => {
+                if (questionText) { questionText.style.transform = 'scale(1)'; }
+                if (gameState.questionIndex < QUESTIONS_PER_LEVEL - 1) {
+                    startTimer();
+                }
+                nextQuestion();
+            }, 600);
+        } else {
+            gameState.userMessage = `❌ Oops! The correct answer was ${gameState.correctAnswer}. Try the next one.`;
+            playSound('wrong');
+
+            if (questionText) {
+                questionText.classList.add('shake');
+                setTimeout(() => questionText.classList.remove('shake'), 500);
+            }
+            
+            renderGameScreen(true);
+            
+            setTimeout(() => {
+                if (gameState.questionIndex < QUESTIONS_PER_LEVEL - 1) {
+                    startTimer();
+                }
+                nextQuestion();
+            }, 1500);
+        }
+    }
+
+    // --- Scoreboard Rendering (Internal Table Structure Only) ---
+    function renderHighScores() {
+        if (gameState.highScores.length === 0) {
+            return '<p class="text-sm text-gray-500 italic pt-4">No scores yet! Be the first to play!</p>';
+        }
+
+        const tableRows = gameState.highScores.map((entry, index) => {
+            const isCurrentUser = gameState.userName && entry.name.trim().toLowerCase() === gameState.userName.trim().toLowerCase();
+            const rowClass = isCurrentUser 
+                ? 'bg-purple-accent/30 font-bold border-purple-accent' 
+                : (index % 2 === 1 ? 'bg-pink-light/30' : '');
+            
+            return `
+                <tr class="border-b border-pink-100 last:border-b-0 ${rowClass}">
+                    <td class="text-center font-extrabold text-purple-accent w-1/6 py-2">${index + 1}</td>
+                    <td class="text-left flex-grow py-2 truncate text-gray-800">${entry.name} ${isCurrentUser ? '(You)' : ''}</td>
+                    <td class="text-right font-extrabold text-pink-dark w-1/6 py-2">${entry.score}</td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <div class="w-full text-left bg-pink-light/50 p-1 rounded-lg shadow-inner scoreboard-scroll">
+                <table class="min-w-full">
+                    <thead>
+                        <tr class="text-sm text-gray-500 border-b-2 border-pink-300">
+                            <th class="text-center font-bold p-1">Rank</th>
+                            <th class="text-left font-bold p-1">Player</th>
+                            <th class="text-right font-bold p-1">Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+    
+    // --- External Scoreboard Handlers ---
+    function renderExternalScoreboard() {
+        // This makes the separate scoreboard visible for all relevant states
+        scoreboardWrapper.style.display = 'block'; 
+        
+        const scoreboardTable = renderHighScores();
+        
+        scoreboardWrapper.innerHTML = `
+            <div class="p-4 pt-0">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-2xl font-extrabold text-pink-medium">🏅 Top Math Sprints</h3>
+                    <button
+                        onclick="resetHighScores()"
+                        class="text-sm text-red-500 font-semibold hover:text-red-700 transition duration-150 p-1 rounded hover:bg-red-50"
+                        title="Clear all stored high scores"
+                    >
+                        Clear Scores 🗑️
+                    </button>
+                </div>
+                ${scoreboardTable}
+            </div>
+        `;
+    }
+
+
+    // --- Screen Renderers ---
+
+    function renderLoginScreen() {
+        const muteIcon = gameState.isMuted ? '🔇' : '🔊';
+
+        app.innerHTML = `
+            <div id="login-screen" class="space-y-6">
+                <div class="absolute top-4 right-4 text-right">
+                    <button onclick="toggleMute()" class="text-3xl p-2 bg-pink-medium text-white rounded-full shadow-lg hover:bg-pink-dark transition duration-150">
+                        ${muteIcon}
+                    </button>
+                </div>
+
+                <h1 class="text-5xl md:text-6xl font-extrabold text-pink-dark leading-tight mb-4 fade-in-scale">
+                    Math Sprint Adventure!
+                </h1>
+                
+                <form id="loginForm" class="fade-in-scale" style="animation-delay: 0.1s;">
+                    <input
+                        type="text"
+                        id="usernameInput"
+                        placeholder="Your Fun Nickname"
+                        class="w-full p-3 mb-4 text-center text-xl border-2 border-pink-medium rounded-xl focus:border-purple-accent outline-none"
+                        maxlength="15"
+                        value="${gameState.userName}"
+                        required
+                    >
+                    <button type="submit" class="btn-primary w-full text-2xl">
+                        🚀 Start Game
+                    </button>
+                </form>
+                <p class="text-sm italic text-gray-500 pt-2">Max Level: ${MAX_LEVEL}, Questions/Level: ${QUESTIONS_PER_LEVEL}</p>
+            </div>
+        `;
+        document.getElementById('loginForm').addEventListener('submit', startGame);
+    }
+
+
+    function renderGameScreen(isQuickUpdate = false) {
+        const questionNum = gameState.questionIndex + 1;
+        const totalQuestions = QUESTIONS_PER_LEVEL;
+        const questionProgressPercentage = (questionNum / totalQuestions) * 100;
+        const muteIcon = gameState.isMuted ? '🔇' : '🔊';
+        
+        const questionClass = isQuickUpdate ? '' : 'question-bounce';
+        const optionsClass = isQuickUpdate ? '' : 'fade-in-scale';
+
+        const optionButtons = gameState.currentOptions.map(option => `
+            <button
+                data-answer="${option}"
+                class="btn-primary w-full text-3xl p-4 focus:outline-none"
+            >
+                ${option}
+            </button>
+        `).join('');
+
+
+        app.innerHTML = `
+            <div id="game-screen" class="space-y-6">
+                <button onclick="toggleMute()" class="text-2xl p-2 rounded-full absolute top-4 right-4 bg-pink-medium text-white shadow-md hover:bg-pink-dark transition duration-150">
+                    ${muteIcon}
+                </button>
+            
+                <div class="flex justify-between items-center text-gray-700 text-base font-semibold border-b pb-4 border-pink-100">
+                    
+                    <p class="flex items-center space-x-1">
+                        <span class="text-pink-dark">Level:</span>
+                        <span class="text-xl font-extrabold text-purple-accent">${gameState.currentLevel} / ${MAX_LEVEL}</span>
+                    </p>
+                    
+                    <p class="flex items-center space-x-1">
+                        <span class="text-pink-dark">Score:</span>
+                        <span class="text-2xl font-extrabold text-pink-dark" id="scoreDisplay">${gameState.score}</span>
+                    </p>
+                    
+                    <p class="flex items-center space-x-1">
+                        <span class="text-pink-dark">Time:</span>
+                        <span class="text-xl font-extrabold text-red-500" id="timerDisplay">${gameState.timeRemaining}</span>
+                    </p>
+                </div>
+                <div class="mb-2">
+                    <p class="text-sm font-semibold text-gray-500">Time Remaining</p>
+                    <div class="progress-bar-container">
+                        <div id="timerProgressBar" class="progress-bar bg-purple-accent" style="width: ${(gameState.timeRemaining / TIME_PER_LEVEL) * 100}%;"></div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <p class="text-sm font-semibold text-gray-500">Question ${questionNum} of ${totalQuestions}</p>
+                    <div class="progress-bar-container">
+                        <div id="questionProgressBar" class="progress-bar bg-pink-medium" style="width: ${questionProgressPercentage}%;"></div>
+                    </div>
+                </div>
+
+
+                <h2 id="questionText" class="text-3xl md:text-4xl font-extrabold text-gray-800 my-8 min-h-[60px] flex items-center justify-center ${questionClass}">
+                    ${gameState.currentQuestion}
+                </h2>
+
+                <div id="optionsContainer" class="grid grid-cols-3 gap-4 ${optionsClass}">
+                    ${optionButtons}
+                </div>
+
+                <p id="feedbackMessage" class="text-lg font-bold min-h-[28px] text-pink-dark ${gameState.userMessage ? 'feedback-pop' : ''}">
+                    ${gameState.userMessage}
+                </p>
+            </div>
+        `;
+        
+        document.getElementById('optionsContainer').addEventListener('click', (event) => {
+            const button = event.target.closest('button');
+            if (button && button.hasAttribute('data-answer')) {
+                const answer = parseInt(button.getAttribute('data-answer'), 10);
+                checkAnswer(answer);
+            }
+        });
+
+        if (isQuickUpdate && gameState.score > gameState.lastScore) {
+             const scoreElement = document.getElementById('scoreDisplay')
+        }
+    }
+
+    function renderLevelCompleteScreen() {
+        const percentCorrect = (gameState.levelScore / (QUESTIONS_PER_LEVEL * 10)) * 100;
+        const totalScore = gameState.score;
+        const nextLevel = gameState.currentLevel + 1;
+        const muteIcon = gameState.isMuted ? '🔇' : '🔊';
+
+        app.innerHTML = `
+            <div id="level-complete-screen" class="space-y-6 text-center">
+                <button onclick="toggleMute()" class="text-2xl p-2 rounded-full absolute top-4 right-4 bg-pink-medium text-white shadow-md hover:bg-pink-dark transition duration-150">
+                    ${muteIcon}
+                </button>
+                <h2 class="text-5xl font-extrabold text-purple-accent mb-4 feedback-pop">
+                    🎉 Level ${gameState.currentLevel} Cleared! 🎉
+                </h2>
+                
+                <div class="bg-pink-light p-6 rounded-xl shadow-inner space-y-3">
+                    <p class="text-xl font-bold text-gray-700">Level Score: <span class="text-pink-dark">${gameState.levelScore} points</span></p>
+                    <p class="text-xl font-bold text-gray-700">Accuracy: <span class="text-purple-accent">${percentCorrect}%</span></p>
+                    <p class="text-2xl font-extrabold text-gray-800 pt-2 border-t border-pink-medium/50">Total Score: <span class="text-pink-dark">${totalScore}</span></p>
+                </div>
+
+                <button onclick="goToNextLevel()" class="btn-primary w-full text-2xl fade-in-scale" style="animation-delay: 0.2s;">
+                    Continue to Level ${nextLevel} ➡️
+                </button>
+                <button onclick="endGame()" class="text-pink-medium font-semibold hover:text-pink-dark transition duration-150 p-2 text-lg">
+                    End Game Here
+                </button>
+            </div>
+        `;
+    }
+
+    function renderCongratulationsScreen() {
+        const muteIcon = gameState.isMuted ? '🔇' : '🔊';
+        const finalScore = gameState.score;
+        
+        app.innerHTML = `
+            <div id="congratulations-screen" class="space-y-6 text-center">
+                <button onclick="toggleMute()" class="text-2xl p-2 rounded-full absolute top-4 right-4 bg-pink-medium text-white shadow-md hover:bg-pink-dark transition duration-150">
+                    ${muteIcon}
+                </button>
+                <h2 class="text-5xl font-extrabold text-pink-dark mb-4 feedback-pop">
+                    🏆 CONGRATULATIONS! 🏆
+                </h2>
+                <p class="text-2xl font-semibold text-gray-700">
+                    You completed the Math Sprint!
+                </p>
+                
+                <div class="bg-purple-accent text-white p-6 rounded-xl shadow-2xl space-y-3 feedback-pop" style="animation-delay: 0.2s;">
+                    <p class="text-xl font-bold">Your Final Score:</p>
+                    <p class="text-6xl font-extrabold">${finalScore}</p>
+                    <p class="text-lg">${finalScore > 0 ? 'You crushed it!' : 'Try to score next time!'}</p>
+                </div>
+                
+                <button onclick="gameState.screen = 'login'; renderApp();" class="btn-primary w-full text-2xl fade-in-scale" style="animation-delay: 0.4s;">
+                    Play Again! ✨
+                </button>
+            </div>
+        `;
+    }
+
+
+    function renderApp() {
+        // Clear old classes before rendering the new screen
+        app.className = 'card';
+
+        // Set the width for the main card (fixed at max-w-md for all screens now)
+        app.classList.add('max-w-md', 'w-[90%]');
+
+        // Always render the scoreboard except on level complete transition
+        if (gameState.screen !== 'levelComplete') {
+            renderExternalScoreboard();
+        } 
+        
+        switch (gameState.screen) {
+            case 'login':
+                renderLoginScreen();
+                break;
+            case 'game':
+                renderGameScreen();
+                break;
+            case 'levelComplete':
+                renderLevelCompleteScreen();
+                break;
+            case 'congratulations':
+                renderCongratulationsScreen();
+                break;
+        }
+        
+        // Add fade-in-scale animation class back
+        setTimeout(() => {
+            app.classList.add('fade-in-scale');
+        }, 10);
+    }
+    
+    // --- Initial Setup ---
+    document.addEventListener('DOMContentLoaded', () => {
+        generateParticles();
+        setTimeout(renderApp, 50); 
+    });
+</script>
+</body>
+</html>
